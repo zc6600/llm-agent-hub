@@ -2,7 +2,7 @@
 
 import pytest
 from llm_tool_hub.base_tool import BaseTool
-from typing import Dict, Any
+from typing import Dict, Any, Callable
 
 # -----------------------------------
 # Helper Mock Class for Testing the BaseTool Contract
@@ -39,3 +39,28 @@ def test_base_tool_enforces_metadata():
     with pytest.raises(NotImplementedError) as excinfo:
         MissingNameTool()
     assert "must define 'name'" in str(excinfo.value)
+
+def test_base_tool_enforces_run_implemention():
+    class MissingRunTool(BaseTool):
+        name: str = "missing_run"
+        description: str = "Missing run method."
+        parameters: Dict[str, Any] = {"type": "object", "properties": {}}
+        # run is intentionally missing here
+
+    with pytest.raises(TypeError) as excinfo:
+        MissingRunTool()
+
+    assert "Can't instantiate abstract class" in str(excinfo.value)
+    assert "with abstract method run" in str(excinfo.value)
+
+
+def test_base_tool_to_callable_integration_helper():
+    tool = CorrectlyImplementedTool()
+
+    callable_func = tool.to_callable()
+
+    # 1. Check if the output is a callable
+    assert isinstance(callable_func, Callable)
+
+    # 2. Check if executing the callable runs the tool's logic
+    assert callable_func() == "Executed successfully"

@@ -70,7 +70,7 @@ class BaseTool(ABC):
          
         :return: A callable function with metadata attributes.
         """
-        tool_function = self.run
+        tool_function = lambda **kwargs: self.run(**kwargs)
 
         tool_function.__name__ = self.name
         tool_function.__doc__ = self.description
