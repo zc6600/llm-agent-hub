@@ -24,7 +24,33 @@ class ReadFileTool(BaseTool):
     # JSON Schema for the 'run' method parameters
 
     parameters: Dict[str, Any] = {
-        "type": "object"
+        "type": "object",
+        "properties" : {
+            "file_path": {
+                "type": "string",
+                "description": (
+                    "The relative path to the target file from the root_path. "
+                    "Example: 'data/input.txt'"
+                ),
+            },
+            "start_line": {
+                "type": "integer",
+                "description": (
+                    "The line number to start reading from (1-indexed). "
+                    "Defaults to 1 (beginning of file)."
+                ),
+                "default": 1,
+            },
+            "end_line": {
+                "type": ["integer", "null"],
+                "description": (
+                    "The line number to stop reading before (exclusive). "
+                    "If not provided, reads until the end of the file."
+                ),
+                "default": None,
+            }
+        },
+        "required": ["file_path"]
     }
 
     root_path: Path
@@ -57,7 +83,9 @@ class ReadFileTool(BaseTool):
         if not file_path:
             raise ValueError("File path is empty, please check your path configuration")
 
-        target_path = Path(file_path).resolve()
+        input_path = Path(file_path)
+
+        target_path = (self.root_path / input_path).resolve()
 
         # Path Traversal Check
         if not self.unsafe_mode:
@@ -105,7 +133,7 @@ class ReadFileTool(BaseTool):
             # Input Validation
             start_line = max(1, start_line)
             if end_line is not None and end_line <= start_line:
-                return "Error: end_line must be greater than start_line."
+                return "ERROR: end_line must be greater than start_line."
             
             content = []
             current_size = 0
@@ -153,7 +181,7 @@ class ReadFileTool(BaseTool):
                     if start_line > total_lines:
                         return (
                             f"ERROR: Tool excution failed for '{file_path}'. "
-                            f"Reason: Requested start_line ({start_line}) is greater than the total lines in file ({total_lines})"
+                            f"Reason: Requested start_line ({start_line}) is greater than the total lines in file ({total_lines})."
                         )
                 last_line_read = start_line + lines_read_count - 1
 
@@ -164,7 +192,7 @@ class ReadFileTool(BaseTool):
                     "-------------------------------------------------------------------------- \n"
                 )
         except (FileNotFoundError, ValueError) as e:
-            return f"Error: Tool excution failed for '{file_path}', Reason: {e}"
+            return f"ERROR: Tool excution failed for '{file_path}', Reason: {e}"
         except Exception as e:
             return f"UNEXPECTED ERROR: Could not read file '{file_path}'. System message: {e}"
         
