@@ -1,4 +1,3 @@
-
 # llm-tool-hub
 
 > **Tools optimized for AI agents** - Reliable, agent-aware tool implementations for building robust autonomous systems.
@@ -29,19 +28,19 @@
 
 # Clone the repository
 
-git clonehttps://github.com/yourusername/llm-tool-hub.git
+git clone https://github.com/zc6600/llm-tool-hub.git
 
 cd llm-tool-hub
 
 
 # Install in development mode
 
-pip install-e.
+pip install -e.
 
 
 # Install with optional dev dependencies
 
-pip install-e".[dev]"
+pip install -e".[dev]"
 
 ```
 
@@ -49,7 +48,7 @@ pip install-e".[dev]"
 
 ```bash
 
-pip install.
+pip install .
 
 ```
 
