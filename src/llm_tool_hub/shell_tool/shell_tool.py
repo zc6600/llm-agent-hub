@@ -7,6 +7,8 @@ from typing import Dict, Any, Union
 from pathlib import Path
 from ..base_tool import BaseTool # Assuming BaseTool is the general base class
 
+__all__ = ['ShellTool', 'int']
+
 logger = logging.getLogger(__name__)
 
 # --- Constants ---
