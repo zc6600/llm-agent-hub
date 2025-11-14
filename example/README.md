@@ -1,57 +1,107 @@
 # 📚 llm-tool-hub Examples
 
-This directory contains comprehensive Jupyter notebooks demonstrating how to use each tool in **llm-tool-hub**.
+This directory contains comprehensive examples and tutorials demonstrating how to use each component in **llm-tool-hub**. The structure mirrors the main `src/` directory organization.
 
 ## 📁 Directory Structure
 
 ```bash
 example/
-├── filesystem_tool/
-│   ├── 01_create_file_tool.ipynb       # Create files with content
-│   ├── 02_read_file_tool.ipynb         # Read files with line ranges
-│   └── 03_modify_file_tool.ipynb       # Modify file content
-├── shell_tool/
-│   └── 01_shell_tool.ipynb             # Execute shell commands
-└── integrations/
-    └── 01_langchain_integration.ipynb   # Use tools with LangChain
+├── agent_blocks_hub/              # Agent building blocks examples
+│   ├── deep_diver/                # DeepDiver agent examples
+│   │   ├── 01_basic_usage.py
+│   │   ├── 01_ideation_agent.py
+│   │   ├── 02_custom_tools.py
+│   │   ├── 02_paper_planner.py
+│   │   ├── 03_llm_controlled_iteration.py
+│   │   ├── 04_flexible_workflow.py
+│   │   ├── 06_parallel_research.py
+│   │   └── test_*.py
+│   └── parallel_react_agent/      # ParallelReactAgent examples
+│       ├── 01_basic_usage.py
+│       ├── 02_ai_safety_research.py
+│       ├── 03_competitive_analysis.py
+│       ├── 04_product_evaluation.py
+│       └── EXAMPLES_GUIDE.py
+├── llm_tool_hub/                  # Core tools and integrations
+│   ├── filesystem_tool/           # File manipulation tools
+│   │   ├── 01_create_file_tool.ipynb
+│   │   ├── 02_read_file_tool.ipynb
+│   │   └── 03_modify_file_tool.ipynb
+│   ├── shell_tool/                # Shell execution examples
+│   │   └── 01_shell_tool.ipynb
+│   ├── integrations/              # Integration examples
+│   │   ├── 01_langchain_integration.ipynb
+│   │   └── mcp/                   # Model Context Protocol examples
+│   │       ├── 01_basic_stdio_server.py
+│   │       ├── 02_simple_test.py
+│   │       └── 03_mcp_client.py
+│   └── function_adapter/          # Function adapter examples
+│       └── 01_basic_usage.py
+└── README.md
 ```
 
 ## 🚀 Quick Start
 
-1. **Filesystem Tools** - For file manipulation:
-   - [CreateFileTool](filesystem_tool/01_create_file_tool.ipynb) - Create new files
-   - [ReadFileTool](filesystem_tool/02_read_file_tool.ipynb) - Read file content
-   - [ModifyFileTool](filesystem_tool/03_modify_file_tool.ipynb) - Edit files
+### Agent Building Blocks
 
-2. **Shell Tools** - For command execution:
-   - [ShellTool](shell_tool/01_shell_tool.ipynb) - Run shell commands
+1. **DeepDiver Agent** - Multi-stage research and reasoning
+   - [01_basic_usage.py](agent_blocks_hub/deep_diver/01_basic_usage.py) - Get started with DeepDiver
+   - [01_ideation_agent.py](agent_blocks_hub/deep_diver/01_ideation_agent.py) - Ideation workflows
+   - [02_custom_tools.py](agent_blocks_hub/deep_diver/02_custom_tools.py) - Add custom tools
 
-3. **Integrations** - For AI agent workflows:
-   - [LangChain Integration](integrations/01_langchain_integration.ipynb) - Use with LangChain agents
+2. **ParallelReactAgent** - Concurrent reasoning and research
+   - [01_basic_usage.py](agent_blocks_hub/parallel_react_agent/01_basic_usage.py) - Basic usage
+   - [02_ai_safety_research.py](agent_blocks_hub/parallel_react_agent/02_ai_safety_research.py) - Research example
+   - [03_competitive_analysis.py](agent_blocks_hub/parallel_react_agent/03_competitive_analysis.py) - Competitive analysis
+
+### Core Tools
+
+1. **Filesystem Tools** - File manipulation:
+   - [01_create_file_tool.ipynb](llm_tool_hub/filesystem_tool/01_create_file_tool.ipynb) - Create files
+   - [02_read_file_tool.ipynb](llm_tool_hub/filesystem_tool/02_read_file_tool.ipynb) - Read file content
+   - [03_modify_file_tool.ipynb](llm_tool_hub/filesystem_tool/03_modify_file_tool.ipynb) - Edit files
+
+2. **Shell Tools** - Command execution:
+   - [01_shell_tool.ipynb](llm_tool_hub/shell_tool/01_shell_tool.ipynb) - Execute shell commands
+
+### Integrations
+
+1. **LangChain** - AI agent workflows:
+   - [01_langchain_integration.ipynb](llm_tool_hub/integrations/01_langchain_integration.ipynb) - Use tools with LangChain
+
+2. **Model Context Protocol (MCP)** - MCP server examples:
+   - [01_basic_stdio_server.py](llm_tool_hub/integrations/mcp/01_basic_stdio_server.py) - Basic MCP server
+   - [03_mcp_client.py](llm_tool_hub/integrations/mcp/03_mcp_client.py) - MCP client example
+
+### Function Adapter
+
+- [01_basic_usage.py](llm_tool_hub/function_adapter/01_basic_usage.py) - Function to tool adapter
 
 ## 📖 Learning Path
 
 ### Beginner
 
-Start with individual tool notebooks to understand basic functionality:
+Start with basic tool examples:
 
-1. CreateFileTool
-2. ReadFileTool
-3. ShellTool
+1. Filesystem Tools (Create, Read)
+2. Shell Tools
+3. Basic agent examples
 
 ### Intermediate
 
-Learn file modification and combining tools:
+Learn advanced agent features:
 
-1. ModifyFileTool
-2. Run multiple tools in sequence
+1. Custom tools with DeepDiver
+2. Parallel research workflows
+3. Tool integration patterns
 
 ### Advanced
 
-Build AI agent workflows:
+Master complex workflows:
 
-1. LangChain Integration
-2. Custom agent patterns
+1. Multi-agent orchestration
+2. LangChain integrations
+3. MCP server development
 
 ## 🎯 Tool Overview
 

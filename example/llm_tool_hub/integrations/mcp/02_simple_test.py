@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 # Add the src directory to the path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
 
 from llm_tool_hub.filesystem_tool.create_file_tool import CreateFileTool
 from llm_tool_hub.filesystem_tool.read_file_tool import ReadFileTool
