@@ -24,13 +24,14 @@ def create_parallel_react_agent(
     tools: List[BaseTool],
     system_prompt: Optional[str] = None,
     verbose: bool = False,
+    enable_summarization: bool = True,
 ) -> Any:
     """
     Create a Parallel React Agent using LangGraph.
     
     The agent runs multiple ReAct agents in parallel, each processing one query
-    with the same tools and system prompt, then uses a Summarizing Agent to
-    integrate and synthesize all results into a coherent output.
+    with the same tools and system prompt, then optionally uses a Summarizing Agent
+    to integrate and synthesize all results into a coherent output.
     
     Args:
         llm: Language model to use for all agents (Claude, GPT, etc.)
@@ -38,6 +39,9 @@ def create_parallel_react_agent(
         system_prompt: Optional user-provided system prompt to combine with
                       the architecture's built-in prompts
         verbose: Whether to print detailed execution logs (default: False)
+        enable_summarization: Whether to run LLM-based summarization (default: True).
+                            Set to False for faster execution when you just need
+                            individual agent results without synthesis.
     
     Returns:
         Compiled LangGraph agent ready to invoke
@@ -49,11 +53,13 @@ def create_parallel_react_agent(
         >>> llm = ChatOpenAI(model="gpt-4")
         >>> tools = [DuckDuckGoSearchRun()]
         >>> 
+        >>> # With summarization (default)
         >>> agent = create_parallel_react_agent(
         ...     llm=llm,
         ...     tools=tools,
         ...     system_prompt="Focus on recent developments",
-        ...     verbose=True  # Enable detailed logging
+        ...     verbose=True,
+        ...     enable_summarization=True
         ... )
         >>> 
         >>> result = agent.invoke({
@@ -64,13 +70,28 @@ def create_parallel_react_agent(
         ...     ]
         ... })
         >>> 
-        >>> print(result["final_summary"])
+        >>> print(result["final_summary"])  # Synthesized summary
+        >>>
+        >>> # Without summarization (faster)
+        >>> agent_fast = create_parallel_react_agent(
+        ...     llm=llm,
+        ...     tools=tools,
+        ...     enable_summarization=False  # Skip summarization
+        ... )
+        >>> 
+        >>> result = agent_fast.invoke({
+        ...     "parallel_react_agent_messages": ["What is LangGraph?"]
+        ... })
+        >>> 
+        >>> # Access individual results directly
+        >>> for idx, res in result["agent_results"].items():
+        ...     print(f"Agent {idx}: {res['result']}")
     """
     if system_prompt is None:
         system_prompt = ""
     
     # Create and return compiled graph
-    graph = _create_graph(llm, tools, system_prompt, verbose)
+    graph = _create_graph(llm, tools, system_prompt, verbose, enable_summarization)
     return graph.compile()
 
 
@@ -79,6 +100,7 @@ def _create_graph(
     tools: List[BaseTool],
     system_prompt: str,
     verbose: bool = False,
+    enable_summarization: bool = True,
 ) -> StateGraph:
     """
     Create the LangGraph state graph for the Parallel React Agent.
@@ -88,6 +110,7 @@ def _create_graph(
         tools: Available tools
         system_prompt: User-provided system prompt
         verbose: Whether to print detailed logs
+        enable_summarization: Whether to enable summarization step
         
     Returns:
         Configured StateGraph
@@ -100,12 +123,14 @@ def _create_graph(
         """Initialize state with LLM, tools, and configuration."""
         # Use verbose from state if provided, otherwise use the one from agent creation
         state_verbose = state.get("verbose", verbose)
+        state_enable_summarization = state.get("enable_summarization", enable_summarization)
         return {
             **initialize_state(state),
             "llm": llm,
             "tools": tools,
             "system_prompt": system_prompt,
             "verbose": state_verbose,  # Set this last to ensure it's not overwritten
+            "enable_summarization": state_enable_summarization,
         }
     
     # Add nodes

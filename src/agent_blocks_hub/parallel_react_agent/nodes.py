@@ -218,10 +218,10 @@ def run_single_agent_sync(
 
 def summarizing_agent(state: ParallelReactAgentState) -> Dict[str, Any]:
     """
-    Node: Summarize results from all parallel agents.
+    Node: Optionally summarize results from all parallel agents.
     
-    Uses a Summarizing Agent to integrate and synthesize results from
-    different angles into a coherent summary.
+    If enable_summarization=True, uses a Summarizing Agent to integrate
+    and synthesize results. Otherwise, provides a simple concatenation.
     
     Args:
         state: Current state with agent results
@@ -235,18 +235,27 @@ def summarizing_agent(state: ParallelReactAgentState) -> Dict[str, Any]:
     system_prompt = state.get("system_prompt", "")
     queries = state.get("parallel_react_agent_messages", [])
     verbose = state.get("verbose", False)
+    enable_summarization = state.get("enable_summarization", True)
     
     print("\n[SUMMARIZING_AGENT] Starting result synthesis")
+    _log(f"[SUMMARIZING_AGENT] Summarization enabled: {enable_summarization}", verbose)
     
     if not agent_results:
         _log("[SUMMARIZING_AGENT] No results to summarize", verbose)
         return {"final_summary": "No results were generated from the parallel agents."}
     
-    # Prepare summary input
+    # If summarization is disabled, use simple concatenation
+    if not enable_summarization:
+        _log("[SUMMARIZING_AGENT] Summarization disabled, using simple concatenation", verbose)
+        final_summary = _fallback_summary(queries, agent_results)
+        print(f"[SUMMARIZING_AGENT] ✓ Summary prepared (no LLM synthesis)")
+        return {"final_summary": final_summary}
+    
+    # Prepare summary input for LLM-based summarization
     summary_input = _prepare_summary_input(queries, agent_results, verbose)
     
     successful_results = sum(1 for r in agent_results.values() if r['success'])
-    print(f"[SUMMARIZING_AGENT] Synthesizing {successful_results}/{len(agent_results)} results")
+    print(f"[SUMMARIZING_AGENT] Synthesizing {successful_results}/{len(agent_results)} results with LLM")
     
     try:
         # Get combined system prompt for summarizing agent

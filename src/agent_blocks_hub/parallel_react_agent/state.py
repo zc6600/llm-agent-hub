@@ -34,6 +34,7 @@ class ParallelReactAgentState(TypedDict, total=False):
     tools: List[BaseTool]  # Tools available to all agents
     system_prompt: str  # User-provided system prompt
     verbose: bool  # Whether to print detailed execution logs
+    enable_summarization: bool  # Whether to run LLM-based summarization (default: True)
     
     # Parallel execution results
     agent_results: Dict[int, AgentResult]  # {query_index: result}
