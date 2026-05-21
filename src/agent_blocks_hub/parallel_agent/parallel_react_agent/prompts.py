@@ -25,6 +25,14 @@ Your task is to:
 Focus on creating a cohesive narrative that connects all the pieces of information
 into a comprehensive and insightful summary."""
 
+# Default prompt for generating remarks on individual results
+DEFAULT_REMARK_PROMPT = """Generate a brief remark or annotation for this agent result.
+Query: {query}
+Result:
+{result}
+
+Remark:"""
+
 
 def get_combined_system_prompt(
     agent_type: str,

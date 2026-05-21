@@ -25,6 +25,9 @@ def create_parallel_tool_agent(
     system_prompt: Optional[str] = None,
     verbose: bool = False,
     enable_summarization: bool = False,
+    enable_remark: bool = False,
+    remark_prompt: Optional[str] = None,
+    summarization_prompt: Optional[str] = None,
     tool_name: Optional[str] = None,
 ) -> Any:
     """
@@ -106,6 +109,9 @@ def create_parallel_tool_agent(
         system_prompt=system_prompt,
         verbose=verbose,
         enable_summarization=enable_summarization,
+        enable_remark=enable_remark,
+        remark_prompt=remark_prompt,
+        summarization_prompt=summarization_prompt,
         tool_name=tool_name,
     )
     return graph.compile()
@@ -117,6 +123,9 @@ def _create_graph(
     system_prompt: str,
     verbose: bool,
     enable_summarization: bool,
+    enable_remark: bool,
+    remark_prompt: Optional[str],
+    summarization_prompt: Optional[str],
     tool_name: Optional[str],
 ) -> StateGraph:
     """
@@ -138,20 +147,27 @@ def _create_graph(
     
     # Define initialization node wrapper
     def init_node(state: ParallelToolAgentState) -> Dict[str, Any]:
-        """Initialize state with configuration."""
-        # Use verbose from state if provided, otherwise use the one from agent creation
         state_verbose = state.get("verbose", verbose)
         state_enable_summarization = state.get("enable_summarization", enable_summarization)
-        
-        return {
-            **initialize_state(state),
+        state_enable_remark = state.get("enable_remark", enable_remark)
+        base_state = initialize_state(state)
+        result = {
+            **base_state,
             "llm": llm,
             "tools": tools,
             "system_prompt": system_prompt,
             "verbose": state_verbose,
             "enable_summarization": state_enable_summarization,
+            "enable_remark": state_enable_remark,
             "tool_name": tool_name,
         }
+        rp = state.get("remark_prompt", remark_prompt)
+        if rp is not None:
+            result["remark_prompt"] = rp
+        sp = state.get("summarization_prompt", summarization_prompt)
+        if sp is not None:
+            result["summarization_prompt"] = sp
+        return result
     
     # Add nodes
     workflow.add_node("initialize", init_node)

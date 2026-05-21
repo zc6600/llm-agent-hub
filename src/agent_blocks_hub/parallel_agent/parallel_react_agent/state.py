@@ -17,6 +17,7 @@ class AgentResult(TypedDict, total=False):
     intermediate_steps: List[Dict[str, Any]]  # (action, observation) pairs from ReAct loop
     success: bool
     error: Optional[str]
+    remark: Optional[str]  # Optional LLM-generated remark for this result
 
 
 class ParallelReactAgentState(TypedDict, total=False):
@@ -35,6 +36,9 @@ class ParallelReactAgentState(TypedDict, total=False):
     system_prompt: str  # User-provided system prompt
     verbose: bool  # Whether to print detailed execution logs
     enable_summarization: bool  # Whether to run LLM-based summarization (default: True)
+    enable_remark: bool  # Whether to generate LLM remarks for individual results (default: False)
+    remark_prompt: Optional[str]  # Custom prompt for remark generation
+    summarization_prompt: Optional[str]  # Custom prompt for summarization
     
     # Parallel execution results
     agent_results: Dict[int, AgentResult]  # {query_index: result}

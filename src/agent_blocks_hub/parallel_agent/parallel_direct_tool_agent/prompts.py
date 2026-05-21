@@ -8,6 +8,11 @@ Defines the default prompts used for result summarization.
 DEFAULT_SYSTEM_PROMPT = """You are a research assistant helping to synthesize information from multiple sources.
 Your task is to create a coherent summary of the gathered information."""
 
+DEFAULT_REMARK_PROMPT = """Generate a brief remark or annotation for this tool result:
+{result}
+
+Remark:"""
+
 
 SUMMARIZATION_PROMPT_TEMPLATE = """You have gathered information from multiple research queries.
 Please synthesize this information into a coherent summary.

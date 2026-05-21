@@ -1,6 +1,7 @@
 # src/llm_tool_hub/scientific_research_tool/search_semantic_scholar.py
 
 import logging
+import os
 from typing import Dict, Any, Optional
 from semanticscholar import SemanticScholar
 from ..base_tool import BaseTool
@@ -43,6 +44,10 @@ class SearchSemanticScholar(BaseTool):
         "required": ["query"],
     }
 
+    def __init__(self, api_key: Optional[str] = None, **kwargs):
+        super().__init__(**kwargs)
+        self.api_key = api_key or os.getenv("SEMANTIC_SCHOLAR_API_KEY")
+
     def run(self, query: str, limit: int = 5) -> str:
         """
         Search for papers on Semantic Scholar API.
@@ -55,8 +60,7 @@ class SearchSemanticScholar(BaseTool):
             A formatted string listing the search results with paper metadata.
         """
         try:
-            # Initialize Semantic Scholar client
-            sch = SemanticScholar()
+            sch = SemanticScholar(api_key=self.api_key)
 
             # Execute search with comprehensive fields
             results = sch.search_paper(
@@ -78,6 +82,9 @@ class SearchSemanticScholar(BaseTool):
             if not results or not results.items:
                 return f"No papers found for query: '{query}'"
 
+            # Log how many results were actually returned
+            logger.info(f"Semantic Scholar returned {len(results.items)} results for query: '{query[:50]}...'")
+
             # Format search results
             formatted_results = []
             for paper in results.items:
@@ -92,7 +99,11 @@ class SearchSemanticScholar(BaseTool):
             if not formatted_results:
                 return f"No valid papers found for query: '{query}'"
 
-            return "\n\n" + "=" * 80 + "\n\n".join(formatted_results) + "\n\n" + "=" * 80
+            logger.info(f"Successfully formatted {len(formatted_results)} results out of {limit} requested")
+
+            # Join results with separator between papers
+            separator = "\n\n" + "=" * 80 + "\n\n"
+            return separator + separator.join(formatted_results) + "\n\n" + "=" * 80
 
         except Exception as e:
             return (
@@ -127,9 +138,10 @@ class SearchSemanticScholar(BaseTool):
             doi = paper.externalIds.get('DOI') or "N/A"
 
         # Extract abstract (truncate if too long)
+        # Increased limit to 2000 to preserve full abstracts for better research context
         abstract = paper.abstract or "N/A"
-        if abstract != "N/A" and len(abstract) > 500:
-            abstract = abstract[:500] + "..."
+        if abstract != "N/A" and len(abstract) > 2000:
+            abstract = abstract[:2000] + "..."
 
         # Extract authors
         authors_str = "N/A"

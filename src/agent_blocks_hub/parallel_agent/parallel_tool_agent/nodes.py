@@ -38,16 +38,30 @@ def initialize_state(state: ParallelToolAgentState) -> Dict[str, Any]:
     queries_count = len(state.get('parallel_tool_agent_messages', []))
     tools_count = len(state.get('tools', []))
     enable_summarization = state.get("enable_summarization", False)
+    enable_remark = state.get("enable_remark", False)
+    remark_prompt = state.get("remark_prompt")
+    summarization_prompt = state.get("summarization_prompt")
     
+    # Set default prompts if not provided
+    if remark_prompt is None:
+        # Reuse a simple default to avoid cross-import; lightweight inline default
+        remark_prompt = "Generate a brief remark for this query and result:\nQuery: {query}\nResult:\n{result}\n\nRemark:"
+    if summarization_prompt is None:
+        summarization_prompt = ""
+
     print("\n[INITIALIZE] Setting up Parallel Tool Agent system")
     _log(f"[INITIALIZE] Number of queries: {queries_count}", verbose)
     _log(f"[INITIALIZE] Number of tools: {tools_count}", verbose)
     _log(f"[INITIALIZE] Summarization enabled: {enable_summarization}", verbose)
+    _log(f"[INITIALIZE] Remark enabled: {enable_remark}", verbose)
     _log(f"[INITIALIZE] Verbose mode: {verbose}", verbose)
     
     return {
         "tool_results": {},
         "final_summary": "",
+        "enable_remark": enable_remark,
+        "remark_prompt": remark_prompt,
+        "summarization_prompt": summarization_prompt,
     }
 
 
@@ -68,11 +82,13 @@ def run_parallel_tools(state: ParallelToolAgentState) -> Dict[str, Any]:
     Returns:
         Updated state with tool results
     """
-    queries = state.get("parallel_tool_agent_messages", [])
+    queries = state.get("parallel_agent_message", [])
     tools = state.get("tools", [])
     verbose = state.get("verbose", False)
     system_prompt = state.get("system_prompt", "")
     llm = state.get("llm")
+    enable_remark = state.get("enable_remark", False)
+    remark_prompt = state.get("remark_prompt", "")
     
     if not queries:
         _log("[PARALLEL_TOOLS] No queries provided", verbose)
@@ -106,6 +122,8 @@ def run_parallel_tools(state: ParallelToolAgentState) -> Dict[str, Any]:
                 tools,
                 system_prompt,
                 verbose,
+                enable_remark,
+                remark_prompt,
             ): idx
             for idx, query in enumerate(queries)
         }
@@ -125,6 +143,7 @@ def run_parallel_tools(state: ParallelToolAgentState) -> Dict[str, Any]:
                     "tool_name": "llm_with_tools",
                     "success": False,
                     "error": error_msg,
+                    "remark": None,
                 }
             results.append(result)
     
@@ -147,6 +166,8 @@ def _process_single_query(
     tools: List[Any],
     system_prompt: str,
     verbose: bool = False,
+    enable_remark: bool = False,
+    remark_prompt: str = "",
 ) -> ToolResult:
     """Process a single query using an LLM bound with tools.
 
@@ -187,8 +208,6 @@ def _process_single_query(
             try:
                 result = selected_tool.invoke(tool_args)
                 result_str = str(result)
-                if len(result_str) > 400:
-                    result_str = result_str[:400] + "..."
                 msg = f"[Tool {tool_name}] args={tool_args} -> {result_str}"
                 tool_logs.append(msg)
                 _log(f"  [Query {query_index}] {msg}", verbose)
@@ -208,6 +227,15 @@ def _process_single_query(
         print(tool_section)
         print(f"  [Query {query_index}] === END QUERY RESULT ===")
 
+    # Generate remark if enabled
+    remark = None
+    if enable_remark and llm_with_tools is not None:
+        try:
+            rm_resp = llm_with_tools.invoke([HumanMessage(content=remark_prompt.format(query=query, result=combined_result))])
+            remark = getattr(rm_resp, "content", "").strip() or None
+        except Exception:
+            remark = None
+
     return {
         "query_index": query_index,
         "query": query,
@@ -215,6 +243,7 @@ def _process_single_query(
         "tool_name": "llm_with_tools",
         "success": True,
         "error": None,
+        "remark": remark,
     }
 
 
@@ -250,6 +279,7 @@ def summarize_results(state: ParallelToolAgentState) -> Dict[str, Any]:
     llm = state.get("llm")
     tool_results = state.get("tool_results", {})
     system_prompt = state.get("system_prompt", "")
+    summarization_prompt = state.get("summarization_prompt", "")
     
     if not llm:
         raise ValueError("LLM required for summarization but not configured")
@@ -264,7 +294,10 @@ def summarize_results(state: ParallelToolAgentState) -> Dict[str, Any]:
     combined_prompt = get_combined_system_prompt(system_prompt)
     
     # Create summarization prompt
-    user_message = f"""Please synthesize the following tool results into a comprehensive summary:
+    if summarization_prompt:
+        user_message = summarization_prompt.format(results_text=results_text)
+    else:
+        user_message = f"""Please synthesize the following tool results into a comprehensive summary:
 
 {results_text}
 
@@ -316,7 +349,11 @@ def _format_results_for_summarization(
         
         if result.get("success"):
             formatted_parts.append(result['result'])
+            if result.get("remark"):
+                formatted_parts.append(f"Remark: {result['remark']}")
         else:
             formatted_parts.append(f"ERROR: {result.get('error', 'Unknown error')}")
+            if result.get("remark"):
+                formatted_parts.append(f"Remark: {result['remark']}")
     
     return "\n".join(formatted_parts)

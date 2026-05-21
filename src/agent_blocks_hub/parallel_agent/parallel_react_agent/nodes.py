@@ -8,7 +8,7 @@ import asyncio
 from typing import Any, Dict, List
 from langchain.agents import create_agent
 from .state import ParallelReactAgentState, AgentResult
-from .prompts import get_combined_system_prompt
+from .prompts import get_combined_system_prompt, DEFAULT_REMARK_PROMPT
 
 
 def _log(message: str, verbose: bool = False):
@@ -32,14 +32,30 @@ def initialize_state(state: ParallelReactAgentState) -> Dict[str, Any]:
     verbose = state.get("verbose", False)
     queries_count = len(state.get('parallel_react_agent_messages', []))
     tools_count = len(state.get('tools', []))
+    enable_summarization = state.get("enable_summarization", True)
+    summarization_prompt = state.get("summarization_prompt", "")
+    enable_remark = state.get("enable_remark", False)
+    remark_prompt = state.get("remark_prompt")
+
+    
+    # Set default prompts if not provided
+    if remark_prompt is None:
+        remark_prompt = DEFAULT_REMARK_PROMPT
+    if summarization_prompt is None:
+        summarization_prompt = ""  # Will be set in summarizing_agent if needed
     
     print("\n[INITIALIZE] Setting up Parallel React Agent system")
     _log(f"[INITIALIZE] Number of queries: {queries_count}", verbose)
     _log(f"[INITIALIZE] Number of tools: {tools_count}", verbose)
     _log(f"[INITIALIZE] Verbose mode: {verbose}", verbose)
+    _log(f"[INITIALIZE] Summarization enabled: {enable_summarization}", verbose)
+    _log(f"[INITIALIZE] Remark enabled: {enable_remark}", verbose)
     
     return {
         "agent_results": {},
+        "enable_remark": enable_remark,
+        "remark_prompt": remark_prompt,
+        "summarization_prompt": summarization_prompt,
     }
 
 
@@ -62,6 +78,8 @@ def run_parallel_agents(state: ParallelReactAgentState) -> Dict[str, Any]:
     tools = state.get("tools", [])
     system_prompt = state.get("system_prompt", "")
     verbose = state.get("verbose", False)
+    enable_remark = state.get("enable_remark", False)
+    remark_prompt = state.get("remark_prompt", "")
     
     if not llm:
         raise ValueError("LLM not configured in state")
@@ -83,7 +101,7 @@ def run_parallel_agents(state: ParallelReactAgentState) -> Dict[str, Any]:
     
     results = []
     for idx, query in enumerate(queries):
-        result = run_single_agent_sync(idx, query, llm, tools, combined_prompt, verbose)
+        result = run_single_agent_sync(idx, query, llm, tools, combined_prompt, verbose, enable_remark, remark_prompt)
         results.append(result)
     
     # Convert results list to dictionary
@@ -104,7 +122,9 @@ def run_single_agent_sync(
     llm: Any,
     tools: List[Any],
     system_prompt: str,
-    verbose: bool = False
+    verbose: bool = False,
+    enable_remark: bool = False,
+    remark_prompt: str = "",
 ) -> AgentResult:
     """
     Run a single ReAct agent synchronously (fallback for when asyncio is not available).
@@ -191,7 +211,21 @@ def run_single_agent_sync(
             print(f"  [Agent {query_index}] ✓ Completed")
         else:
             _log(f"  [Agent {query_index}] Output length: {len(output)} chars", verbose)
-            _log(f"  [Agent {query_index}] ✓ Completed", verbose)
+        _log(f"  [Agent {query_index}] ✓ Completed", verbose)
+        
+        # Generate remark if enabled
+        remark = None
+        if enable_remark and llm is not None:
+            try:
+                _log(f"  [Agent {query_index}] Generating remark with LLM", verbose)
+                from langchain_core.messages import HumanMessage
+                remark_message = HumanMessage(content=remark_prompt.format(query=query, result=output))
+                remark_response = llm.invoke([remark_message])
+                remark = remark_response.content.strip()
+                _log(f"  [Agent {query_index}] ✓ Remark generated: {remark[:100]}...", verbose)
+            except Exception as e:
+                _log(f"  [Agent {query_index}] ✗ Failed to generate remark: {str(e)}", verbose)
+                remark = None
         
         return {
             "query_index": query_index,
@@ -200,6 +234,7 @@ def run_single_agent_sync(
             "intermediate_steps": intermediate_steps,
             "success": True,
             "error": None,
+            "remark": remark,
         }
     
     except Exception as e:
@@ -213,6 +248,7 @@ def run_single_agent_sync(
             "intermediate_steps": [],
             "success": False,
             "error": str(e),
+            "remark": None,
         }
 
 
@@ -236,6 +272,7 @@ def summarizing_agent(state: ParallelReactAgentState) -> Dict[str, Any]:
     queries = state.get("parallel_react_agent_messages", [])
     verbose = state.get("verbose", False)
     enable_summarization = state.get("enable_summarization", True)
+    summarization_prompt = state.get("summarization_prompt", "")
     
     print("\n[SUMMARIZING_AGENT] Starting result synthesis")
     _log(f"[SUMMARIZING_AGENT] Summarization enabled: {enable_summarization}", verbose)
@@ -253,6 +290,8 @@ def summarizing_agent(state: ParallelReactAgentState) -> Dict[str, Any]:
     
     # Prepare summary input for LLM-based summarization
     summary_input = _prepare_summary_input(queries, agent_results, verbose)
+    if summarization_prompt:
+        summary_input = f"{summary_input}\n\nAdditional summarization instructions:\n{summarization_prompt}"
     
     successful_results = sum(1 for r in agent_results.values() if r['success'])
     print(f"[SUMMARIZING_AGENT] Synthesizing {successful_results}/{len(agent_results)} results with LLM")
@@ -339,6 +378,8 @@ def _prepare_summary_input(queries: List[str], agent_results: Dict[int, AgentRes
             summary_text += f"Query {idx + 1}: {query}\n"
             if result["success"]:
                 summary_text += f"Response: {result['result']}\n\n"
+                if result.get("remark"):
+                    summary_text += f"Remark: {result['remark']}\n\n"
                 if verbose:
                     print(f"\n[SUMMARY_INPUT] Query {idx + 1}: {query}")
                     print(f"[SUMMARY_INPUT] Response length: {len(result['result'])} chars")
@@ -347,6 +388,8 @@ def _prepare_summary_input(queries: List[str], agent_results: Dict[int, AgentRes
                     print(f"[SUMMARY_INPUT] (End of Query {idx + 1} response)")
             else:
                 summary_text += f"Error: {result['error']}\n\n"
+                if result.get("remark"):
+                    summary_text += f"Remark: {result['remark']}\n\n"
                 if verbose:
                     print(f"[SUMMARY_INPUT] Query {idx + 1}: Failed with error: {result['error']}")
     

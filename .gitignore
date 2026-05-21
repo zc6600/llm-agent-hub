@@ -25,6 +25,8 @@ htmlcov/
 # IDE
 .vscode/
 .idea/
+.DS_Store
+**/.DS_Store
 *.swp
 *.swo
 *~
@@ -55,4 +57,9 @@ share/python-wheels/
 MANIFEST
 
 # unpubliced files
-src/multi_agent_hub
+# src/multi_agent_hub/
+git
+
+# unrelated projects
+paper_planner/
+FIle-Mem/

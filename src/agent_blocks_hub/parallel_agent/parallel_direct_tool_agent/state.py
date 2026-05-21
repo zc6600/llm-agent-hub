@@ -18,6 +18,7 @@ class ToolResult(TypedDict, total=False):
     tool_name: str
     success: bool
     error: Optional[str]
+    remark: Optional[str]  # Optional LLM-generated remark for this result
 
 
 class ParallelDirectToolAgentState(TypedDict, total=False):
@@ -31,7 +32,7 @@ class ParallelDirectToolAgentState(TypedDict, total=False):
     The interface is identical to ParallelToolAgentState for drop-in compatibility.
     """
     # Input queries
-    parallel_tool_agent_messages: List[str]  # List of queries to process in parallel
+    parallel_agent_message: List[str]  # List of queries to process in parallel
     
     # Configuration
     llm: Any  # Language model instance (only used for summarization if enabled)
@@ -39,6 +40,9 @@ class ParallelDirectToolAgentState(TypedDict, total=False):
     system_prompt: str  # User-provided system prompt (used in summarization)
     verbose: bool  # Whether to print detailed execution logs
     enable_summarization: bool  # Whether to run summarization step (default: False)
+    enable_remark: bool  # Whether to generate LLM remarks for individual results (default: False)
+    remark_prompt: Optional[str]  # Custom prompt for remark generation
+    summarization_prompt: Optional[str]  # Custom prompt for summarization
     
     # Tool selection (optional)
     tool_name: Optional[str]  # Specific tool to use (if None, uses first available tool)

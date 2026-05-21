@@ -12,7 +12,7 @@ __all__ = ['ShellTool', 'int']
 logger = logging.getLogger(__name__)
 
 # --- Constants ---
-MAX_OUTPUT_LENGTH = 5000
+MAX_OUTPUT_LENGTH = 50000  # Increased from 5000 to support larger command outputs
 DEFAULT_TIMEOUT = 100 
 
 # --- Helper Function: Output Truncation ---

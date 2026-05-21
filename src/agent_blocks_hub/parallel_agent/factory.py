@@ -149,6 +149,14 @@ def create_parallel_agent(
     if enable_summarization and llm is None:
         raise ValueError("LLM is required when enable_summarization=True")
     
+    # Normalize tools based on mode
+    tools = _normalize_tools_for_mode(tools or [], mode)
+
+    # Extract optional remark-related kwargs
+    enable_remark = kwargs.get("enable_remark", False)
+    remark_prompt = kwargs.get("remark_prompt")
+    summarization_prompt = kwargs.get("summarization_prompt")
+
     # Route to appropriate implementation
     if mode == "direct":
         from .direct import create_parallel_direct_tool_agent as create_impl
@@ -158,6 +166,9 @@ def create_parallel_agent(
             system_prompt=system_prompt,
             verbose=verbose,
             enable_summarization=enable_summarization,
+            enable_remark=enable_remark,
+            remark_prompt=remark_prompt,
+            summarization_prompt=summarization_prompt,
             tool_name=tool_name,
         )
         # Wrap to provide unified output format
@@ -171,6 +182,9 @@ def create_parallel_agent(
             system_prompt=system_prompt,
             verbose=verbose,
             enable_summarization=enable_summarization,
+            enable_remark=enable_remark,
+            remark_prompt=remark_prompt,
+            summarization_prompt=summarization_prompt,
             tool_name=tool_name,
         )
         # Wrap to provide unified output format
@@ -183,6 +197,10 @@ def create_parallel_agent(
             tools=tools,
             system_prompt=system_prompt,
             verbose=verbose,
+            enable_summarization=enable_summarization,
+            enable_remark=enable_remark,
+            remark_prompt=remark_prompt,
+            summarization_prompt=summarization_prompt,
         )
         # Wrap to provide unified output format (react uses "agent_results")
         return _wrap_agent_with_unified_output(agent, "agent_results")
@@ -219,6 +237,31 @@ def _wrap_agent_with_unified_output(agent: Any, result_key: str) -> Any:
                 # Add tool_results alias
                 result["tool_results"] = result["agent_results"]
             
+            results_dict = result.get("agent_results") or result.get("tool_results") or {}
+            tool_result = {}
+            remark = {}
+            tool_result_with_remark = {}
+            query_map = {}
+            for idx, item in results_dict.items():
+                res_text = item.get("result", "")
+                rm = item.get("remark")
+                q = item.get("query")
+                tool_result[idx] = res_text
+                remark[idx] = rm
+                tool_result_with_remark[idx] = res_text + ("\nRemark: " + rm if rm else "")
+                if q is not None:
+                    query_map[idx] = q
+            if tool_result:
+                result["tool_result"] = tool_result
+            if tool_result_with_remark:
+                result["tool_result_with_remark"] = tool_result_with_remark
+            if remark:
+                result["remark"] = remark
+            if query_map:
+                result["query"] = query_map
+            if "final_summary" in result:
+                result["summary"] = result.get("final_summary")
+
             return result
         
         def stream(self, *args, **kwargs):
@@ -228,6 +271,48 @@ def _wrap_agent_with_unified_output(agent: Any, result_key: str) -> Any:
             return getattr(self.inner_agent, name)
     
     return UnifiedAgent(agent, result_key)
+
+
+def _normalize_tools_for_mode(tools: List[Any], mode: str) -> List[Any]:
+    """
+    Normalize provided tools to match the execution mode requirements.
+
+    - For mode "tool_calling" and "react": ensure tools are LangChain tools with `.invoke`.
+      If tools are llm-tool-hub BaseTool instances or lack `.invoke`, adapt them automatically.
+    - For mode "direct": return tools unchanged.
+    """
+    if not tools:
+        return []
+
+    if mode in ["tool_calling", "react"]:
+        try:
+            from llm_tool_hub.base_tool import BaseTool as HubBaseTool
+        except Exception:
+            HubBaseTool = None  # Fallback if not available
+
+        needs_adapter = False
+        for t in tools:
+            if hasattr(t, "invoke"):
+                continue
+            if HubBaseTool and isinstance(t, HubBaseTool):
+                needs_adapter = True
+                break
+            # If no invoke and unknown type, still try adapting
+            needs_adapter = True
+            break
+
+        if needs_adapter:
+            try:
+                from llm_tool_hub.integrations.langchain_adapter import LangchainToolAdapter
+                return LangchainToolAdapter.to_langchain_structured_tool(tools)
+            except ImportError as e:
+                raise ImportError(
+                    "Provided tools are not LangChain tools and automatic adaptation failed. "
+                    "Please install 'langchain-core' or manually adapt tools using "
+                    "LangchainToolAdapter.to_langchain_structured_tool(...)."
+                ) from e
+
+    return tools
 
 
 # Backward compatibility aliases

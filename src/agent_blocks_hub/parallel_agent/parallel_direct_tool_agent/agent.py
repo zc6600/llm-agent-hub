@@ -25,6 +25,9 @@ def create_parallel_direct_tool_agent(
     system_prompt: Optional[str] = None,
     verbose: bool = False,
     enable_summarization: bool = False,
+    enable_remark: bool = False,
+    remark_prompt: Optional[str] = None,
+    summarization_prompt: Optional[str] = None,
     tool_name: Optional[str] = None,
 ) -> Any:
     """
@@ -54,15 +57,16 @@ def create_parallel_direct_tool_agent(
         >>> from langchain_openai import ChatOpenAI
         >>> from llm_tool_hub.scientific_research_tool import SearchSemanticScholar
         >>> 
-        >>> # Fast mode: No summarization, direct tool calls only
+        >>> # Fast mode: No summarization or remarks, direct tool calls only
         >>> agent = create_parallel_direct_tool_agent(
         ...     tools=[SearchSemanticScholar()],
-        ...     enable_summarization=False,  # Maximum speed, no LLM needed
+        ...     enable_summarization=False,
+        ...     enable_remark=False,  # No remarks
         ...     verbose=True
         ... )
         >>> 
         >>> result = agent.invoke({
-        ...     "parallel_tool_agent_messages": [
+        ...     "parallel_agent_message": [
         ...         "transformer neural networks",
         ...         "attention mechanism deep learning",
         ...     ]
@@ -72,23 +76,46 @@ def create_parallel_direct_tool_agent(
         >>> for idx, tool_result in result["tool_results"].items():
         ...     print(f"Query {idx}: {tool_result['result']}")
         >>>
-        >>> # Summarization mode: LLM synthesizes results
+        >>> # Mode with remarks: Add LLM-generated remarks to individual results
         >>> llm = ChatOpenAI(model="gpt-4")
-        >>> agent_with_summary = create_parallel_direct_tool_agent(
+        >>> agent_with_remarks = create_parallel_direct_tool_agent(
         ...     llm=llm,
         ...     tools=[SearchSemanticScholar()],
-        ...     enable_summarization=True,
+        ...     enable_summarization=False,
+        ...     enable_remark=True,  # Enable remarks for each result
+        ...     remark_prompt="Custom remark prompt: {result}",  # Optional custom prompt
         ...     verbose=True
         ... )
         >>> 
-        >>> result = agent_with_summary.invoke({
-        ...     "parallel_tool_agent_messages": [
+        >>> result = agent_with_remarks.invoke({
+        ...     "parallel_agent_message": [
         ...         "transformer neural networks",
         ...         "attention mechanism deep learning",
         ...     ]
         ... })
         >>> 
-        >>> print(result["final_summary"])  # Synthesized, coherent summary
+        >>> # Access results with remarks
+        >>> for idx, tool_result in result["tool_results"].items():
+        ...     print(f"Query {idx}: {tool_result['result']}\nRemark: {tool_result['remark']}")
+        >>>
+        >>> # Full mode: Summarization with optional remarks
+        >>> agent_full = create_parallel_direct_tool_agent(
+        ...     llm=llm,
+        ...     tools=[SearchSemanticScholar()],
+        ...     enable_summarization=True,
+        ...     enable_remark=True,
+        ...     summarization_prompt="Custom summary prompt: {combined_results}",  # Optional
+        ...     verbose=True
+        ... )
+        >>> 
+        >>> result = agent_full.invoke({
+        ...     "parallel_agent_message": [
+        ...         "transformer neural networks",
+        ...         "attention mechanism deep learning",
+        ...     ]
+        ... })
+        >>> 
+        >>> print(result["final_summary"])  # Synthesized summary including remarks
     """
     if tools is None:
         tools = []
@@ -98,9 +125,11 @@ def create_parallel_direct_tool_agent(
     
     if enable_summarization and llm is None:
         raise ValueError("LLM is required when enable_summarization=True")
+    if enable_remark and llm is None:
+        raise ValueError("LLM is required when enable_remark=True")
     
     # Create and return compiled graph
-    graph = _create_graph(llm, tools, system_prompt, verbose, enable_summarization, tool_name)
+    graph = _create_graph(llm, tools, system_prompt, verbose, enable_summarization, enable_remark, remark_prompt, summarization_prompt, tool_name)
     return graph.compile()
 
 
@@ -110,6 +139,9 @@ def _create_graph(
     system_prompt: str,
     verbose: bool = False,
     enable_summarization: bool = False,
+    enable_remark: bool = False,
+    remark_prompt: Optional[str] = None,
+    summarization_prompt: Optional[str] = None,
     tool_name: Optional[str] = None,
 ) -> StateGraph:
     """
@@ -131,16 +163,27 @@ def _create_graph(
     
     # Define initialization node wrapper
     def init_node(state: ParallelDirectToolAgentState) -> Dict[str, Any]:
-        """Initialize state with LLM, tools, and configuration."""
-        return {
+        state_verbose = state.get("verbose", verbose)
+        state_enable_summarization = state.get("enable_summarization", enable_summarization)
+        state_enable_remark = state.get("enable_remark", enable_remark)
+        base_state = initialize_state(state)
+        result = {
+            **base_state,
             "llm": llm,
             "tools": tools,
             "system_prompt": system_prompt,
-            "verbose": verbose,
-            "enable_summarization": enable_summarization,
+            "verbose": state_verbose,
+            "enable_summarization": state_enable_summarization,
+            "enable_remark": state_enable_remark,
             "tool_name": tool_name,
-            **initialize_state(state),
         }
+        rp = state.get("remark_prompt", remark_prompt)
+        if rp is not None:
+            result["remark_prompt"] = rp
+        sp = state.get("summarization_prompt", summarization_prompt)
+        if sp is not None:
+            result["summarization_prompt"] = sp
+        return result
     
     # Define parallel direct tools node wrapper
     def parallel_direct_tools_node(state: ParallelDirectToolAgentState) -> Dict[str, Any]:

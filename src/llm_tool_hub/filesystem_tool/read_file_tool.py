@@ -6,7 +6,7 @@ from pathlib import Path
 from .base_filesystem_tool import BaseFileSystemTool
 
 logger = logging.getLogger(__name__)
-MAX_LINE_CHARS = 5000
+MAX_LINE_CHARS = 10000  # Increased from 5000 to support longer single lines (e.g., minified code, data files)
 class ReadFileTool(BaseFileSystemTool):
     """
     A tool to safely read the content of a text file from the project's working directory.
